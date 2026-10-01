@@ -1,7 +1,7 @@
 module.exports = [
   {
     "type": "heading",
-    "defaultValue": "Pushups Configuration"
+    "defaultValue": "Workouts Configuration"
   },
   {
     "type": "section",
@@ -27,21 +27,69 @@ module.exports = [
         ]
       },
       {
+        "type": "toggle",
+        "messageKey": "STRICT_MODE",
+        "defaultValue": false,
+        "label": "Strict Mode (Prevent Goal Reduction)",
+        "description": "If enabled, your daily goals will never decrease automatically."
+      }
+    ]
+  },
+  {
+    "type": "section",
+    "items": [
+      {
+        "type": "heading",
+        "defaultValue": "Exercises"
+      },
+      {
+        "type": "text",
+        "defaultValue": "Each exercise has its own minimum daily goal and adaptive progression."
+      },
+      {
+        "type": "toggle",
+        "messageKey": "ENABLE_PUSHUPS",
+        "defaultValue": true,
+        "label": "Push-ups / Liegestütze"
+      },
+      {
         "type": "slider",
         "messageKey": "DAILY_GOAL",
         "defaultValue": 30,
-        "label": "Minimum Goal / Minimalziel",
-        "description": "The absolute minimum pushup target per day.",
-        "min": 10,
+        "label": "Push-ups: Minimum Goal",
+        "min": 5,
         "max": 500,
         "step": 5
       },
       {
         "type": "toggle",
-        "messageKey": "STRICT_MODE",
-        "defaultValue": false,
-        "label": "Strict Mode (Prevent Goal Reduction)",
-        "description": "If enabled, your daily goal will never decrease automatically."
+        "messageKey": "ENABLE_PULLUPS",
+        "defaultValue": true,
+        "label": "Pull-ups / Klimmzüge"
+      },
+      {
+        "type": "slider",
+        "messageKey": "DAILY_GOAL_PULLUPS",
+        "defaultValue": 10,
+        "label": "Pull-ups: Minimum Goal",
+        "min": 1,
+        "max": 200,
+        "step": 1
+      },
+      {
+        "type": "toggle",
+        "messageKey": "ENABLE_SQUATS",
+        "defaultValue": true,
+        "label": "Squats / Kniebeugen"
+      },
+      {
+        "type": "slider",
+        "messageKey": "DAILY_GOAL_SQUATS",
+        "defaultValue": 30,
+        "label": "Squats: Minimum Goal",
+        "min": 5,
+        "max": 500,
+        "step": 5
       }
     ]
   },

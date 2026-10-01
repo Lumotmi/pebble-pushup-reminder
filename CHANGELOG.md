@@ -2,6 +2,24 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.0] - 2026-10-01
+
+### Added
+- **Pull-ups & Squats:** Alongside push-ups, the app now tracks pull-ups and squats. Each exercise has its own minimum goal (defaults: 30 / 10 / 30), adaptive progression (overload, deload, rest days), streak and 14-day history.
+- **Per-exercise main menu:** The main menu shows one log entry per enabled exercise with today's progress.
+- **Multi-exercise reminders:** The reminder lists today's progress for every exercise. Select opens an exercise chooser (or Quick Log directly if only one is left), and after logging you return to the reminder until all goals are met.
+- **Enable/disable exercises:** Toggle exercises on the phone settings page, or set a goal to "Off" on the watch.
+- **Dashboard exercise filter:** The phone dashboard can show a single exercise or all three as a stacked chart; table and CSV export include the exercise.
+
+### Changed
+- App renamed to **Workouts** with a new UUID, so it installs alongside the original Pushups app. Push-up data keeps its storage keys.
+- The goal picker clamps at its minimum/maximum and supports hold-to-repeat.
+
+### Fixed
+- **Gadgetbridge key mapping:** The hardcoded message key IDs for `REQUEST_SYNC` and `SYNC_OFFLINE_DATA` were off by one. On Gadgetbridge this turned Strict Mode on at every app start and broke offline sync.
+- **Offline sync buffer:** The AppMessage outbox (64 bytes) was too small for a full 14-day sync payload; it is now 256 bytes.
+- The reminder's button hint no longer gets cut off at the bottom of the screen.
+
 ## [2.3] - 2026-09-27
 
 ### Added

@@ -1,7 +1,7 @@
 {
   "name": "pebble-pushup-reminder",
   "author": "Antigravity",
-  "version": "2.3.0",
+  "version": "3.0.0",
   "keywords": [
     "pebble-app"
   ],
@@ -10,9 +10,9 @@
     "pebble-clay": "^1.0.4"
   },
   "pebble": {
-    "versionLabel": "2.3",
-    "displayName": "Pushups",
-    "uuid": "b91d2938-16e5-472d-88f5-d6023ab945a1",
+    "versionLabel": "3.0",
+    "displayName": "Workouts",
+    "uuid": "9228ec14-50de-40a0-a4cb-69add102df3e",
     "sdkVersion": "3",
     "enableMultiJS": true,
     "targetPlatforms": [
@@ -34,7 +34,13 @@
       "AUTO_DISMISS_DURATION",
       "STRICT_MODE",
       "REQUEST_SYNC",
-      "SYNC_OFFLINE_DATA"
+      "SYNC_OFFLINE_DATA",
+      "LOG_EXERCISE",
+      "DAILY_GOAL_PULLUPS",
+      "DAILY_GOAL_SQUATS",
+      "ENABLE_PUSHUPS",
+      "ENABLE_PULLUPS",
+      "ENABLE_SQUATS"
     ],
     "resources": {
       "media": []

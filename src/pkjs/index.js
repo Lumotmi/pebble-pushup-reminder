@@ -50,8 +50,16 @@ var myMessageKeys = {
   "ACTIVE_END_HOUR": 10004,
   "LOG_PUSHUPS": 10005,
   "LOG_TIMESTAMP": 10006,
-  "REQUEST_SYNC": 10008,
-  "SYNC_OFFLINE_DATA": 10009
+  "AUTO_DISMISS_DURATION": 10007,
+  "STRICT_MODE": 10008,
+  "REQUEST_SYNC": 10009,
+  "SYNC_OFFLINE_DATA": 10010,
+  "LOG_EXERCISE": 10011,
+  "DAILY_GOAL_PULLUPS": 10012,
+  "DAILY_GOAL_SQUATS": 10013,
+  "ENABLE_PUSHUPS": 10014,
+  "ENABLE_PULLUPS": 10015,
+  "ENABLE_SQUATS": 10016
 };
 
 // Helper to duplicate payload keys (both string and integer) for Gadgetbridge and other runtimes
@@ -88,7 +96,8 @@ Pebble.addEventListener("appmessage", function(e) {
 
   var logPushups = dict.LOG_PUSHUPS !== undefined ? dict.LOG_PUSHUPS : dict["10005"];
   var logTimestamp = dict.LOG_TIMESTAMP !== undefined ? dict.LOG_TIMESTAMP : dict["10006"];
-  var syncData = dict.SYNC_OFFLINE_DATA !== undefined ? dict.SYNC_OFFLINE_DATA : dict["10009"];
+  var logExercise = dict.LOG_EXERCISE !== undefined ? dict.LOG_EXERCISE : dict["10011"];
+  var syncData = dict.SYNC_OFFLINE_DATA !== undefined ? dict.SYNC_OFFLINE_DATA : dict["10010"];
 
   if (logPushups !== undefined && logTimestamp !== undefined) {
     var history = [];
@@ -98,15 +107,15 @@ Pebble.addEventListener("appmessage", function(e) {
     
     history.push({
       count: logPushups,
-      time: logTimestamp
+      time: logTimestamp,
+      ex: logExercise || 0
     });
     
     localStorage.setItem("pushup_history", JSON.stringify(history));
-    console.log("Pushups JS: Saved pushup session to history.");
+    console.log("Pushups JS: Saved session (exercise " + (logExercise || 0) + ") to history.");
   }
 
   if (syncData !== undefined) {
-    var num_records = syncData[0];
     var hist = [];
     try {
       hist = JSON.parse(localStorage.getItem("pushup_history") || "[]");
@@ -120,35 +129,47 @@ Pebble.addEventListener("appmessage", function(e) {
       return Math.floor(diff / oneDay);
     }
     
+    // Totals keyed by "<exercise>:<yday>" (entries without exercise are push-ups)
     var dailyTotals = {};
     for (var i = 0; i < hist.length; i++) {
-      var yday = getYearDay(hist[i].time);
-      if (!dailyTotals[yday]) dailyTotals[yday] = 0;
-      dailyTotals[yday] += hist[i].count;
+      var key = (hist[i].ex || 0) + ":" + getYearDay(hist[i].time);
+      if (!dailyTotals[key]) dailyTotals[key] = 0;
+      dailyTotals[key] += hist[i].count;
     }
 
     var currentYDay = getYearDay(Math.floor(Date.now() / 1000));
     var currentYear = new Date().getFullYear();
     var added = false;
 
-    for (var r = 0; r < num_records; r++) {
-      var offset = 1 + r * 4;
-      var achieved = syncData[offset] | (syncData[offset + 1] << 8);
-      var r_yday = syncData[offset + 2] | (syncData[offset + 3] << 8);
-      
-      var existing = dailyTotals[r_yday] || 0;
-      if (achieved > existing) {
-        var missing = achieved - existing;
-        var r_year = (r_yday > currentYDay + 10) ? currentYear - 1 : currentYear;
-        var dummyDate = new Date(r_year, 0, r_yday);
-        dummyDate.setHours(12, 0, 0, 0);
-        
-        hist.push({
-          count: missing,
-          time: Math.floor(dummyDate.getTime() / 1000)
-        });
-        added = true;
-        console.log("Pushups JS: Synced " + missing + " missing pushups for yday " + r_yday);
+    // Payload: [num_exercises] then per exercise:
+    //   [exercise_id][num_records] + num_records * [achieved_lo, achieved_hi, yday_lo, yday_hi]
+    var num_exercises = syncData[0];
+    var offset = 1;
+    for (var x = 0; x < num_exercises; x++) {
+      var ex = syncData[offset];
+      var num_records = syncData[offset + 1];
+      offset += 2;
+
+      for (var r = 0; r < num_records; r++) {
+        var achieved = syncData[offset] | (syncData[offset + 1] << 8);
+        var r_yday = syncData[offset + 2] | (syncData[offset + 3] << 8);
+        offset += 4;
+
+        var existing = dailyTotals[ex + ":" + r_yday] || 0;
+        if (achieved > existing) {
+          var missing = achieved - existing;
+          var r_year = (r_yday > currentYDay + 10) ? currentYear - 1 : currentYear;
+          var dummyDate = new Date(r_year, 0, r_yday);
+          dummyDate.setHours(12, 0, 0, 0);
+
+          hist.push({
+            count: missing,
+            time: Math.floor(dummyDate.getTime() / 1000),
+            ex: ex
+          });
+          added = true;
+          console.log("Pushups JS: Synced " + missing + " missing reps of exercise " + ex + " for yday " + r_yday);
+        }
       }
     }
 

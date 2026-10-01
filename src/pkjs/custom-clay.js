@@ -22,22 +22,34 @@ module.exports = function(minified) {
         return;
       }
 
-      // Group by date (YYYY-MM-DD) for charting
-      var dailyTotals = {};
+      // Exercise ids match the watch app's ExerciseType enum
+      var EXERCISES = [
+        { name: "Push-ups", color: "#FF4700" },
+        { name: "Pull-ups", color: "#0055AA" },
+        { name: "Squats",   color: "#00AA55" }
+      ];
+
+      // Group by exercise and date (YYYY-MM-DD) for charting.
+      // Entries logged before multi-exercise support have no `ex` and are push-ups.
+      var dailyTotals = [];
+      for (var x = 0; x < EXERCISES.length; x++) dailyTotals.push({});
       for (var i = 0; i < history.length; i++) {
         var entry = history[i];
+        var totals = dailyTotals[entry.ex || 0];
+        if (!totals) continue;
         var d = new Date(entry.time * 1000);
         var dateStr = d.getFullYear() + "-" + (d.getMonth()+1) + "-" + d.getDate();
-        if (!dailyTotals[dateStr]) {
-          dailyTotals[dateStr] = 0;
+        if (!totals[dateStr]) {
+          totals[dateStr] = 0;
         }
-        dailyTotals[dateStr] += entry.count;
+        totals[dateStr] += entry.count;
       }
 
       var currentLabels = [];
-      var currentValues = [];
+      var currentDatasets = [];
       var activeTimeframe = null;
       var activeViewMode = null;
+      var activeExercise = null;
 
       function renderDashboard() {
         if (activeTimeframe === null) {
@@ -45,6 +57,13 @@ module.exports = function(minified) {
         }
         if (activeViewMode === null) {
           try { activeViewMode = localStorage.getItem('dashboard_view') || 'chart'; } catch(e) { activeViewMode = 'chart'; }
+        }
+        if (activeExercise === null) {
+          try { activeExercise = localStorage.getItem('dashboard_exercise') || 'all'; } catch(e) { activeExercise = 'all'; }
+        }
+        var shownExercises = [];
+        for (var x = 0; x < EXERCISES.length; x++) {
+          if (activeExercise === 'all' || activeExercise === String(x)) shownExercises.push(x);
         }
 
         var timeframe = activeTimeframe;
@@ -78,14 +97,29 @@ module.exports = function(minified) {
         }
 
         currentLabels = [];
-        currentValues = [];
         for (var j = 0; j < dates.length; j++) {
           var parts = dates[j].split("-");
           currentLabels.push(parts[2] + "." + parts[1] + ".");
-          currentValues.push(dailyTotals[dates[j]] || 0);
+        }
+        currentDatasets = [];
+        for (var sx = 0; sx < shownExercises.length; sx++) {
+          var exId = shownExercises[sx];
+          var values = [];
+          for (var j2 = 0; j2 < dates.length; j2++) {
+            values.push(dailyTotals[exId][dates[j2]] || 0);
+          }
+          currentDatasets.push({ label: EXERCISES[exId].name, color: EXERCISES[exId].color, values: values });
         }
 
-        var controlsHTML = '<div style="display:flex; justify-content:space-between; margin-bottom:10px;">' +
+        var exerciseOptions = '<option value="all"' + (activeExercise==='all'?' selected':'') + '>All Exercises</option>';
+        for (var ox = 0; ox < EXERCISES.length; ox++) {
+          exerciseOptions += '<option value="' + ox + '"' + (activeExercise===String(ox)?' selected':'') + '>' + EXERCISES[ox].name + '</option>';
+        }
+
+        var controlsHTML = '<select id="exercise-select" style="width:100%; margin-bottom:10px; padding:5px; border-radius:4px; font-size:14px;">' +
+            exerciseOptions +
+          '</select>' +
+          '<div style="display:flex; justify-content:space-between; margin-bottom:10px;">' +
           '<select id="timeframe-select" style="flex:1; margin-right:10px; padding:5px; border-radius:4px; font-size:14px;">' +
             '<option value="7"' + (timeframe==='7'?' selected':'') + '>Last 7 Days</option>' +
             '<option value="30"' + (timeframe==='30'?' selected':'') + '>Last 30 Days</option>' +
@@ -119,24 +153,22 @@ module.exports = function(minified) {
             '    if(e.data && e.data.type === "render") {' +
             '      if(chart) chart.destroy();' +
             '      var ctx = document.getElementById("chart").getContext("2d");' +
+            '      var datasets = e.data.datasets.map(function(ds) {' +
+            '        return { label: ds.label, data: ds.values, backgroundColor: ds.color, borderRadius: 4 };' +
+            '      });' +
             '      chart = new Chart(ctx, {' +
             '        type: "bar",' +
             '        data: {' +
             '          labels: e.data.labels,' +
-            '          datasets: [{' +
-            '            label: "Pushups",' +
-            '            data: e.data.values,' +
-            '            backgroundColor: "#FF4700",' +
-            '            borderRadius: 4' +
-            '          }]' +
+            '          datasets: datasets' +
             '        },' +
             '        options: {' +
             '          responsive: true,' +
             '          maintainAspectRatio: false,' +
-            '          plugins: { legend: { display: false } },' +
+            '          plugins: { legend: { display: datasets.length > 1, labels: { boxWidth: 12 } } },' +
             '          scales: {' +
-            '            y: { beginAtZero: true, ticks: { precision: 0 } },' +
-            '            x: { grid: { display: false } }' +
+            '            y: { stacked: true, beginAtZero: true, ticks: { precision: 0 } },' +
+            '            x: { stacked: true, grid: { display: false } }' +
             '          }' +
             '        }' +
             '      });' +
@@ -152,19 +184,30 @@ module.exports = function(minified) {
         } else {
           contentHTML = '<div style="max-height:180px; overflow-y:auto; border:1px solid #ccc; border-radius:4px; margin-bottom:10px;">' +
             '<table style="width:100%; border-collapse:collapse; font-size:14px; font-family:sans-serif;">' +
-            '<thead style="background:#eee; position:sticky; top:0;"><tr><th style="padding:8px; text-align:left; border-bottom:1px solid #ccc;">Date</th><th style="padding:8px; text-align:right; border-bottom:1px solid #ccc;">Pushups</th></tr></thead>' +
-            '<tbody>';
+            '<thead style="background:#eee; position:sticky; top:0;"><tr><th style="padding:8px; text-align:left; border-bottom:1px solid #ccc;">Date</th>';
+          for (var hx = 0; hx < currentDatasets.length; hx++) {
+            contentHTML += '<th style="padding:8px; text-align:right; border-bottom:1px solid #ccc;">' + currentDatasets[hx].label + '</th>';
+          }
+          contentHTML += '</tr></thead><tbody>';
           
           for (var k = dates.length - 1; k >= 0; k--) {
-            contentHTML += '<tr><td style="padding:8px; border-bottom:1px solid #eee;">' + currentLabels[k] + '</td><td style="padding:8px; text-align:right; border-bottom:1px solid #eee;">' + currentValues[k] + '</td></tr>';
+            contentHTML += '<tr><td style="padding:8px; border-bottom:1px solid #eee;">' + currentLabels[k] + '</td>';
+            for (var cx = 0; cx < currentDatasets.length; cx++) {
+              contentHTML += '<td style="padding:8px; text-align:right; border-bottom:1px solid #eee;">' + currentDatasets[cx].values[k] + '</td>';
+            }
+            contentHTML += '</tr>';
           }
           contentHTML += '</tbody></table></div>';
         }
 
-        var sum = 0;
-        for (var s = 0; s < currentValues.length; s++) sum += currentValues[s];
+        var summaryParts = [];
+        for (var tx = 0; tx < currentDatasets.length; tx++) {
+          var sum = 0;
+          for (var s = 0; s < currentDatasets[tx].values.length; s++) sum += currentDatasets[tx].values[s];
+          summaryParts.push(currentDatasets[tx].label + ': ' + sum);
+        }
 
-        var summaryHTML = '<p style="font-size:12px; color:#666; text-align:center;">Total Pushups in Period: ' + sum + '</p>';
+        var summaryHTML = '<p style="font-size:12px; color:#666; text-align:center;">Total in Period &mdash; ' + summaryParts.join(' &middot; ') + '</p>';
 
         $('#dashboard-chart').set('innerHTML', controlsHTML + contentHTML + summaryHTML);
 
@@ -173,6 +216,14 @@ module.exports = function(minified) {
           tfSelect.addEventListener('change', function(e) {
             activeTimeframe = e.target.value;
             try { localStorage.setItem('dashboard_timeframe', activeTimeframe); } catch(err) {}
+            renderDashboard();
+          });
+        }
+        var exSelect = document.getElementById('exercise-select');
+        if (exSelect) {
+          exSelect.addEventListener('change', function(e) {
+            activeExercise = e.target.value;
+            try { localStorage.setItem('dashboard_exercise', activeExercise); } catch(err) {}
             renderDashboard();
           });
         }
@@ -191,7 +242,7 @@ module.exports = function(minified) {
           if(e.data === 'chartReady') {
             var iframe = document.getElementById('chart-iframe');
             if(iframe && iframe.contentWindow) {
-              iframe.contentWindow.postMessage({ type: 'render', labels: currentLabels, values: currentValues }, '*');
+              iframe.contentWindow.postMessage({ type: 'render', labels: currentLabels, datasets: currentDatasets }, '*');
             }
           }
         });
@@ -204,11 +255,12 @@ module.exports = function(minified) {
       $('#btn-export-csv').on('click', function(e) {
         e.preventDefault();
         
-        var rawCsvContent = "Date,Timestamp,Pushups\n";
+        var rawCsvContent = "Date,Timestamp,Exercise,Reps\n";
         for (var n = 0; n < history.length; n++) {
           var row = history[n];
           var rd = new Date(row.time * 1000);
-          rawCsvContent += rd.toISOString() + "," + row.time + "," + row.count + "\n";
+          var exName = EXERCISES[row.ex || 0] ? EXERCISES[row.ex || 0].name : "Unknown";
+          rawCsvContent += rd.toISOString() + "," + row.time + "," + exName + "," + row.count + "\n";
         }
         
         // Hide the export button
